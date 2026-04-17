@@ -1,4 +1,5 @@
 #include "../include/file_registery.h"
+#include "../include/tokenizer.h"
 #include <iostream>
 #include <cerrno>
 #include <filesystem>
@@ -14,11 +15,6 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	if(dir_path.empty()) dir_path = "./data";
-
-	FileRegistry fr;
-	fr.index_directory(dir_path);
-	std::cout << "files in the directory \"" << dir_path << "\" :\n";
-	fr.list_all();
-
+	
 	return 0;
 }
