@@ -1,0 +1,20 @@
+#pragma once
+#include <string>
+#include <unordered_map>
+
+struct FileMetaData {
+	int id;
+	std::string name;
+	std::string path;
+};
+
+class FileRegistry {
+private:
+    std::unordered_map<int, FileMetaData> registry;
+    int nextId = 0;
+public:
+    void register_file(const std::string& name, const std::string& path);
+    const FileMetaData& get_file(int id) const;
+    void list_all() const;
+    void index_directory(const std::string& path);
+};
