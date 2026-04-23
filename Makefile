@@ -1,9 +1,10 @@
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -g -pthread
+CXXFLAGS = -std=c++20 -Wall -Wextra -g -pthread -MMD -MP
 INC = -I include
 
 SRC = $(wildcard src/*.cpp)
 OBJ = $(patsubst src/%.cpp, build/%.o, $(SRC))
+DEP = $(OBJ:.o=.d)
 
 OUT = bin/indxr
 
@@ -22,3 +23,5 @@ run: all
 
 clean:
 	rm -rf build bin
+
+-include $(DEP)
