@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <vector>
+#include <utility>
 #include <unordered_map>
 
 struct FileMetaData {
@@ -17,4 +19,5 @@ public:
     const FileMetaData& get_file(int id) const;
     void list_all() const;
     void index_directory(const std::string& path);
+    std::vector<std::pair<int, std::string>> get_filenames() const;
 };

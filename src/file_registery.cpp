@@ -1,6 +1,9 @@
 #include "../include/file_registery.h"
+#include "../include/file_name_index.h"
 #include <iostream>
 #include <string>
+#include <vector>
+#include <utility>
 #include <unordered_map>
 #include <filesystem>
 
@@ -21,8 +24,15 @@ void FileRegistry::list_all() const {
 void FileRegistry::index_directory(const std::string& path) {
     for(auto& entry : std::filesystem::directory_iterator(path)) {
         // Each entry is of type fs::directory_entry. It knows the file's full path, whether it's a file or folder, its extension, etc.
-        if(entry.is_regular_file()) 
+        if(entry.is_regular_file() && entry.path().extension().string() == ".txt") 
             FileRegistry::register_file(entry.path().filename().string(), entry.path().string());
-
     }
+}
+
+std::vector<std::pair<int, std::string>> FileRegistry::get_filenames() const {
+    std::vector<std::pair<int, std::string>> file_names;
+    for (const auto& [id, meta] : registry) {
+        file_names.emplace_back(id, meta.name);
+    }
+    return file_names;
 }
