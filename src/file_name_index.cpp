@@ -7,7 +7,7 @@
 #include <unordered_set>
 #include <iostream>
 
-void FilenameIndex::add_file(int id, const std::string& file_name) {
+void FilenameIndex::index_file_name(int id, const std::string& file_name) {
     std::vector<std::string> tokens = tokenize(file_name, true);
     for(const auto& token : tokens) 
         index[token].insert(id);
