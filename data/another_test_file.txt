@@ -1,1 +1,1 @@
-another sample text from another test text-file
+another sample text for testing

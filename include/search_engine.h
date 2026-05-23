@@ -16,6 +16,6 @@ private:
     InvertedIndex IdX;
 public:
     void build(const std::string& dir_path);
-    std::vector<std::pair<int, int>> search(const std::string& token) const;
+    std::vector<std::pair<int, int>> search(const std::string& query) const;
     void display(const std::vector<std::pair<int, int>>& results) const;
 };

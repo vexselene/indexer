@@ -1,1 +1,2 @@
-sample text of test text-file
+test file contains sample content
+programming is fun

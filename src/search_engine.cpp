@@ -43,24 +43,27 @@ void SearchEngine::build(const std::string& dir_path) {
     }
 }
 
-std::vector<std::pair<int, int>> SearchEngine::search(const std::string& token) const {
-    std::unordered_set<int> f_name_ids = fx.search(token);
-    std::unordered_map<int, int> f_content_ids = IdX.search(token);
+std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) const {
+    std::vector<std::string> tokens = tokenize(query, false);
 
     // build score map (O(1) lookup)
     std::unordered_map<int, int> score_map;
-    for(int f_id : f_name_ids) score_map[f_id] += 10;
-    for(const auto& [f_id, freq] : f_content_ids) score_map[f_id] += 3*freq;
-
+    
+    for(const auto& token : tokens) {
+        std::unordered_set<int> f_name_ids = fx.search(token);
+        std::unordered_map<int, int> f_content_ids = IdX.search(token);
+        
+        for(int f_id : f_name_ids) score_map[f_id] += 10;
+        for(const auto& [f_id, freq] : f_content_ids) score_map[f_id] += 3*freq;
+    }
     std::vector<std::pair<int, int>> results;
     for(const auto& [f_id, score] : score_map) results.emplace_back(f_id, score); 
-
+    
     std::sort(results.begin(), results.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
         if(a.second != b.second)
             return a.second > b.second;
         return a.first < b.first;
     });
-
     return results;
 }
 

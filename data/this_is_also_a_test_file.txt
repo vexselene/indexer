@@ -1,1 +1,2 @@
-this is also a sample text
+this is also a test file
+with programming examples

@@ -21,15 +21,17 @@ int main(int argc, char* argv[]) {
 	engine.build(dir_path);
 	bool flag = true;
 	while(flag) {
-		std::string s; 
-		std::cout << "Enter text to search: "; std::cin >> s;
-		std::vector<std::pair<int, int>> results = engine.search(s);
+		std::string query;
+		std::cout << "Enter text to search: ";
+		std::getline(std::cin, query);
+		
+		auto results = engine.search(query);
 		engine.display(results);
 
-		char choice = 'n';
-		std::cout << "\nDo you want to continue? (y/n): ";
-		std::cin >> choice;
-		if(choice != 'y') flag = false;
+		std::cout << "\nContinue? (y/n): ";
+		std::string choice;
+		std::getline(std::cin, choice);
+		if(choice != "y") flag = false;
 	}
 
 	return 0;
