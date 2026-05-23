@@ -11,9 +11,14 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 void SearchEngine::build(const std::string& dir_path) {
-    fr.index_directory(dir_path);
+    // resolve dir_path -> absolute path
+    namespace fs =  std::filesystem;
+    std::string abs_path = fs::absolute(dir_path).string();
+
+    fr.index_directory(abs_path);
     
     std::vector<std::pair<int, std::string>> files = fr.get_filenames();
 
@@ -24,7 +29,7 @@ void SearchEngine::build(const std::string& dir_path) {
 
     // create inverted index for file content
     for(const auto& [f_id, f_name] : files) {
-        std::string file_path = dir_path + "/" + f_name;
+        std::string file_path = abs_path + "/" + f_name;
         std::ifstream file(file_path);
         if(!file.is_open()) {
             std::cerr << "Warning could not open file: " << file_path << std::endl;

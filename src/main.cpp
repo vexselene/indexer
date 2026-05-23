@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 			std::cerr << "Invalid directory \"" << argv[1] << "\" fallback to defaults\n";
 		}
 	}
-	if(dir_path.empty()) dir_path = "./data";
+	if(dir_path.empty()) dir_path = "data";
 
 	SearchEngine engine;
 	engine.build(dir_path);
