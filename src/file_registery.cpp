@@ -7,8 +7,8 @@
 #include <unordered_map>
 #include <filesystem>
 
-void FileRegistry::register_file(const std::string&  name, const std::string& path) {
-    registry[nextId] = {nextId, name, path};
+void FileRegistry::register_file(const std::string&  name, const std::string& path, bool index_content) {
+    registry[nextId] = {nextId, name, path, index_content};
     nextId++;
 }
 
@@ -22,11 +22,16 @@ void FileRegistry::list_all() const {
 }
 
 void FileRegistry::index_directory(const std::string& path) {
+    const std::unordered_set<std::string> content_exts = {".txt", ".md", ".csv", ".log"};
     for(auto& entry : std::filesystem::recursive_directory_iterator(path,
                       std::filesystem::directory_options::skip_permission_denied)) {
         // Each entry is of type fs::directory_entry. It knows the file's full path, whether it's a file or folder, its extension, etc.
-        if(entry.is_regular_file() && entry.path().extension().string() == ".txt") 
-            FileRegistry::register_file(entry.path().filename().string(), entry.path().string());
+        if(entry.is_regular_file()) {
+            std::string ext = entry.path().extension().string();
+            bool index_content = content_exts.count(ext) > 0;
+            FileRegistry::register_file(entry.path().filename().string(), 
+                                                entry.path().string(), index_content);
+        }
     }
 }
 

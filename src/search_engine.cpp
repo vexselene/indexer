@@ -30,6 +30,8 @@ void SearchEngine::build(const std::string& dir_path) {
 
     // create inverted index for file content
     for(const auto& [f_id, f_name] : files) {
+        FileMetaData meta = fr.get_file(f_id);
+        if(!meta.index_content) continue; // skip file for inverted index if not a text file 
         std::string file_path = fr.get_file(f_id).path; // use absolute path stored in the File meta data
         std::ifstream file(file_path);
         if(!file.is_open()) {
