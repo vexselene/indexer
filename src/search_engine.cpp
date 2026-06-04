@@ -25,11 +25,12 @@ void SearchEngine::build(const std::string& dir_path) {
     //index file names
     for(const auto& [f_id, f_name] : files) {
         fx.index_file_name(f_id, f_name);
+        pt.index_file_name(f_id, f_name);
     }
 
     // create inverted index for file content
     for(const auto& [f_id, f_name] : files) {
-        std::string file_path = abs_path + "/" + f_name;
+        std::string file_path = fr.get_file(f_id).path; // use absolute path stored in the File meta data
         std::ifstream file(file_path);
         if(!file.is_open()) {
             std::cerr << "Warning could not open file: " << file_path << std::endl;
@@ -50,10 +51,16 @@ std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) 
     std::unordered_map<int, int> score_map;
     
     for(const auto& token : tokens) {
-        std::unordered_set<int> f_name_ids = fx.search(token);
+        std::unordered_set<int> f_name_ids = fx.search(token); 
+        // std::unordered_set<int> f_name_ids = pt.search(token);
+        std::unordered_set<int> pref_f_name_ids = pt.search_matching(token);
         std::unordered_map<int, int> f_content_ids = IdX.search(token);
         
-        for(int f_id : f_name_ids) score_map[f_id] += 10;
+        for(int f_id : f_name_ids) {
+            score_map[f_id] += 10;
+            pref_f_name_ids.erase(f_id);
+        }
+        for(int f_id : pref_f_name_ids) score_map[f_id] += 5;
         for(const auto& [f_id, freq] : f_content_ids) score_map[f_id] += 3*freq;
     }
     std::vector<std::pair<int, int>> results;
@@ -71,6 +78,7 @@ void SearchEngine::display(const std::vector<std::pair<int, int>>& results) cons
     std::cout << "--------Query results--------\n";
     if(results.empty()) {
         std::cout << "Nothing found!\n";
+        std::cout << "--------x-----------x--------\n";
         return;
     }
     for(const std::pair<int, int>& result : results) {
@@ -80,4 +88,5 @@ void SearchEngine::display(const std::vector<std::pair<int, int>>& results) cons
         std::cout << "File Name: " << f_metadata.name << std::endl;
         std::cout << "File Path: " << f_metadata.path << std::endl;
     }
+    std::cout << "--------x-----------x--------\n";
 }
