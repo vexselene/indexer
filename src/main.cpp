@@ -24,14 +24,11 @@ int main(int argc, char* argv[]) {
 		std::string query;
 		std::cout << "Enter text to search: ";
 		std::getline(std::cin, query);
+		if(query.empty()) continue;
+		if(query == ":q" || query == ":Q") flag = false;
 		
 		auto results = engine.search(query);
 		engine.display(results);
-
-		std::cout << "\nContinue? (y/n): ";
-		std::string choice;
-		std::getline(std::cin, choice);
-		if(choice != "y") flag = false;
 	}
 
 	return 0;
