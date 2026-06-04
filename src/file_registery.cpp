@@ -22,7 +22,8 @@ void FileRegistry::list_all() const {
 }
 
 void FileRegistry::index_directory(const std::string& path) {
-    for(auto& entry : std::filesystem::directory_iterator(path)) {
+    for(auto& entry : std::filesystem::recursive_directory_iterator(path,
+                      std::filesystem::directory_options::skip_permission_denied)) {
         // Each entry is of type fs::directory_entry. It knows the file's full path, whether it's a file or folder, its extension, etc.
         if(entry.is_regular_file() && entry.path().extension().string() == ".txt") 
             FileRegistry::register_file(entry.path().filename().string(), entry.path().string());
