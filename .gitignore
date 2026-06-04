@@ -1,6 +1,7 @@
 # Build artifacts
 build/
 bin/
+benchmark_data/
 
 # Object files
 *.o

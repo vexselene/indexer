@@ -1,0 +1,71 @@
+=== INDEXOR BENCHMARK ===
+Directory: ./benchmark_data
+Timestamp: Thu Jun  4 23:39:23 2026
+
+Build time: 14 ms
+Memory before: 3596 kB
+Memory after:  4436 kB
+Memory used:   840 kB
+
+--- Exact Filename Search (Hash Map) ---
+  "apple": 4 µs, 9 results
+  "banana": 1 µs, 10 results
+  "memory": 2 µs, 10 results
+  "stack": 2 µs, 15 results
+  "queue": 2 µs, 9 results
+  "algorithm": 2 µs, 9 results
+  "database": 1 µs, 11 results
+  "pointer": 1 µs, 14 results
+  "thread": 2 µs, 9 results
+  Average: 1 µs
+
+--- Exact Filename Search (PrefixTree) ---
+  "apple": 4 µs, 9 results
+  "banana": 4 µs, 10 results
+  "memory": 3 µs, 10 results
+  "stack": 5 µs, 15 results
+  "queue": 3 µs, 9 results
+  "algorithm": 2 µs, 9 results
+  "database": 4 µs, 11 results
+  "pointer": 4 µs, 14 results
+  "thread": 3 µs, 9 results
+  Average: 3 µs
+
+--- Prefix Filename Search (PrefixTree) ---
+  "ap": 1 µs, 9 results
+  "ba": 4 µs, 20 results
+  "me": 3 µs, 18 results
+  "st": 4 µs, 25 results
+  "qu": 2 µs, 17 results
+  "al": 0 µs, 9 results
+  "da": 3 µs, 21 results
+  "po": 0 µs, 14 results
+  "th": 0 µs, 9 results
+  "re": 12 µs, 44 results
+  Average: 2 µs
+
+--- Content Search (Inverted Index) ---
+  "apple": 24 µs, 176 results
+  "banana": 21 µs, 165 results
+  "memory": 21 µs, 174 results
+  "stack": 20 µs, 168 results
+  "queue": 21 µs, 175 results
+  "algorithm": 19 µs, 175 results
+  "database": 20 µs, 171 results
+  "pointer": 19 µs, 179 results
+  "thread": 21 µs, 178 results
+  Average: 20 µs
+
+--- Combined Search (SearchEngine) ---
+  "apple": 24 µs, 179 results
+  "banana": 21 µs, 166 results
+  "memory": 21 µs, 174 results
+  "stack": 21 µs, 173 results
+  "queue": 21 µs, 175 results
+  "algorithm": 21 µs, 175 results
+  "database": 21 µs, 172 results
+  "pointer": 22 µs, 179 results
+  "thread": 22 µs, 178 results
+  Average: 21 µs
+
+Final memory: 4436 kB

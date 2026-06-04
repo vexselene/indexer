@@ -20,4 +20,8 @@ public:
     void build(const std::string& dir_path);
     std::vector<std::pair<int, int>> search(const std::string& query) const;
     void display(const std::vector<std::pair<int, int>>& results) const;
+    
+    const PrefixTree& get_prefix_tree() const { return pt; }
+    const FilenameIndex& get_filename_index() const { return fx; }
+    const InvertedIndex& get_inverted_index() const { return IdX; }
 };
