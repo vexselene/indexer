@@ -24,7 +24,9 @@ void SearchEngine::build(const std::string& dir_path) {
 
     //index file names
     for(const auto& [f_id, f_name] : files) {
+        #ifdef USE_HASHMAP
         fx.index_file_name(f_id, f_name);
+        #endif
         pt.index_file_name(f_id, f_name);
     }
 
@@ -53,9 +55,11 @@ std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) 
     std::unordered_map<int, int> score_map;
     
     for(const auto& token : tokens) {
+        #ifdef USE_HASHMAP
         std::unordered_set<int> f_name_ids = fx.search(token); 
-        // std::unordered_set<int> f_name_ids = pt.search(token);
-        std::unordered_set<int> pref_f_name_ids = pt.search_matching(token);
+        #endif
+        std::unordered_set<int> f_name_ids = pt.search(token); //exact search
+        std::unordered_set<int> pref_f_name_ids = pt.search_matching(token); // prefix search
         std::unordered_map<int, int> f_content_ids = IdX.search(token);
         
         for(int f_id : f_name_ids) {
