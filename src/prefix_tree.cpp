@@ -4,11 +4,50 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 
+#include <fstream>  // std::ifstream, std::ofstream
+
+/*
+    Writes a trivially copyable value to a binary file.
+
+    Example:
+        int x = 42;
+        write_binary(file, x);
+
+    The bytes of x are copied directly into the file.
+*/
+template<typename T>
+void write_binary(std::ofstream& file, const T& value) {
+    file.write(
+        reinterpret_cast<const char*>(&value),
+        sizeof(T)
+    );
+}
+
+/*
+    Reads a value of type T from a binary file.
+
+    Example:
+        int x;
+        read_binary(file, x);
+
+    Reads sizeof(T) bytes from the file and stores them in x.
+*/
+template<typename T>
+void read_binary(std::ifstream& file, T& value)
+{
+    file.read(
+        reinterpret_cast<char*>(&value),
+        sizeof(T)
+    );
+}
+
+
 TrieNode::~TrieNode() {
-    for(auto& [ch, child] : links) {
+    for(auto& [c, child] : links) {
         delete child; // avoid mem leaks
     }
 }
@@ -105,4 +144,221 @@ void PrefixTree::list_all() const {
     for(auto& word : words) {
         std::cout << word << std::endl;
     }
+}
+
+void PrefixTree::serialize(const std::string& filename) const {
+    // Open file in binary mode.
+    // Without std::ios::binary some platforms may perform
+    // text conversions which we do not want.
+    std::ofstream file(filename, std::ios::binary);
+
+    if(!file) throw std::runtime_error("Could not open file");
+
+    /*
+        We cannot store raw pointers.
+
+        Example:
+
+            root = 0x1234
+            child = 0x5678
+
+        Those addresses are only valid during the current run.
+
+        Therefore we assign every node an integer index:
+
+            root  -> 0
+            child -> 1
+            child -> 2
+
+        and store those indices instead.
+    */
+    std::unordered_map<TrieNode*, int> node_to_index;
+
+    /*
+        Allows us to iterate through nodes later.
+
+        nodes[0] -> root
+        nodes[1] -> first child
+        nodes[2] -> second child
+    */
+    std::vector<TrieNode*> nodes;
+
+    /*
+        Breadth-first traversal.
+
+        We visit every node exactly once and assign it
+        an index.
+    */
+    std::queue<TrieNode*> q;
+    q.push(root);
+
+    while(!q.empty()) {
+        TrieNode* node = q.front();
+        q.pop();
+
+        // Skip nodes already assigned an index.
+        if(node_to_index.count(node)) {
+            continue;
+        }
+
+        node_to_index[node] = static_cast<int>(nodes.size());
+        nodes.push_back(node);
+
+        for(const auto& [c, child] : node->links) {
+            q.push(child);
+        }
+    }
+
+    // Total number of nodes in the trie.
+    int node_count = static_cast<int>(nodes.size());
+
+    write_binary(file, node_count);
+
+    /*
+        Serialize every node.
+
+        Format:
+
+            is_terminal
+            child_count
+
+            child_char
+            child_index
+
+            child_char
+            child_index
+
+            ...
+
+            id_count
+
+            id
+            id
+            id
+    */
+    for(TrieNode* node : nodes) {
+        write_binary(file, node->is_terminal_flag);
+
+        int child_count = static_cast<int>(node->links.size());
+
+        write_binary(file, child_count);
+
+        /*
+            Store children as:
+
+                character
+                index
+
+            Example:
+
+                'a' -> node 7
+
+            becomes:
+
+                'a'
+                 7
+        */
+        for(const auto& [c, child] : node->links) {
+            write_binary(file, c);
+
+            int child_index = node_to_index[child];
+
+            write_binary(file, child_index);
+        }
+
+        int id_count = static_cast<int>(node->file_ids.size());
+
+        write_binary(file, id_count);
+
+        for(int id : node->file_ids) {
+            write_binary(file, id);
+        }
+    }
+}
+
+void PrefixTree::deserialize(const std::string& filename)
+{
+    std::ifstream file(filename, std::ios::binary);
+
+    if(!file) throw std::runtime_error("Could not open file");
+    
+    // Delete existing trie if one exists.
+    delete root;
+
+    int node_count;
+    read_binary(file, node_count);
+
+    /*
+        Create all nodes first.
+
+        Suppose node_count = 3
+
+        nodes[0]
+        nodes[1]
+        nodes[2]
+
+        We don't know their relationships yet.
+    */
+    std::vector<TrieNode*> nodes(node_count); // create a vector of nodes
+
+    for(int i = 0; i < node_count; i++)
+    {
+        nodes[i] = new TrieNode();
+    }
+
+    /*
+        Now read data for every node.
+
+        Since every node already exists,
+        child indices can safely be converted
+        into pointers.
+    */
+    for(int i = 0; i < node_count; i++)
+    {
+        TrieNode* node = nodes[i]; // read from vector created above
+
+        read_binary(file, node->is_terminal_flag);
+
+        int child_count;
+        read_binary(file, child_count);
+
+        for(int j = 0; j < child_count; j++)
+        {
+            char c;
+            int child_index;
+
+            read_binary(file, c);
+            read_binary(file, child_index);
+
+            /*
+                Convert index back into pointer.
+
+                Example:
+
+                    child_index = 5
+
+                becomes
+
+                    nodes[5]
+            */
+            node->links[c] = nodes[child_index];
+        }
+
+        int id_count;
+        read_binary(file, id_count);
+
+        for(int j = 0; j < id_count; j++)
+        {
+            int id;
+            read_binary(file, id);
+
+            node->file_ids.insert(id);
+        }
+    }
+
+    /*
+        Root was serialized first (bfs),
+        therefore it always gets index 0.
+    */
+    root = nodes[0];
 }

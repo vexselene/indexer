@@ -21,6 +21,8 @@ private:
     FileRegistry fr;
     InvertedIndex IdX;
     PrefixTree pt;
+
+    std::string indexed_path;
 public:
     void build(const std::string& dir_path);
     std::vector<std::pair<int, int>> search(const std::string& query) const;
@@ -32,4 +34,7 @@ public:
     
     const PrefixTree& get_prefix_tree() const { return pt; }
     const InvertedIndex& get_inverted_index() const { return IdX; }
+
+    void save() const;
+    bool load(const std::string& abs_path); // returns true if loaded from disk
 };

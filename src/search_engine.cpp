@@ -17,7 +17,13 @@ void SearchEngine::build(const std::string& dir_path) {
     // resolve dir_path -> absolute path
     namespace fs =  std::filesystem;
     std::string abs_path = fs::absolute(dir_path).string();
+    indexed_path = abs_path;
+    if(load(abs_path)) {
+        std::cout << "Loaded existing Index\n";
+        return;
+    }
 
+    // build if saved index not loaded
     fr.index_directory(abs_path);
     
     std::vector<std::pair<int, std::string>> files = fr.get_filenames();
@@ -95,4 +101,46 @@ void SearchEngine::display(const std::vector<std::pair<int, int>>& results) cons
         std::cout << "File Path: " << f_metadata.path << std::endl;
     }
     std::cout << "--------x-----------x--------\n";
+}
+
+void SearchEngine::save() const {
+    fr.serialize(indexed_path + "/.indexer_registry");
+    pt.serialize(indexed_path + "/.indexer_prefix");
+    IdX.serialize(indexed_path + "/.indexer_inverted");
+
+    // store the absolute path of the directory the index_.bin is for
+    std::ofstream meta(indexed_path + "/.indexer_meta");
+    int path_length = static_cast<int>(indexed_path.size());
+    meta.write(reinterpret_cast<const char*>(&path_length), sizeof(path_length));
+    meta.write(indexed_path.data(), path_length);
+
+    std::cout << "Index saved" << std::endl;
+}
+
+bool SearchEngine::load(const std::string& abs_path) {
+    namespace fs = std::filesystem;
+    if(fs::exists(abs_path + "/.indexer_registry") && // deserialize only if these files exist
+       fs::exists(abs_path + "/.indexer_prefix") &&
+       fs::exists(abs_path + "/.indexer_inverted") &&
+       fs::exists(abs_path + "/.indexer_meta")) {
+        
+        std::ifstream meta(abs_path + "/.indexer_meta");
+        int path_length;
+        meta.read(reinterpret_cast<char*>(&path_length), sizeof(path_length));
+        std::string saved_path(path_length, '\0');
+        meta.read(saved_path.data(), path_length);
+
+        if (saved_path != abs_path) {
+            std::cout << "Index is for '" << saved_path << "', rebuilding for '" << abs_path << "'\n";
+            return false;
+        }
+
+        fr.deserialize(abs_path + "/.indexer_registry");
+        pt.deserialize(abs_path + "/.indexer_prefix");
+        IdX.deserialize(abs_path + "/.indexer_inverted");
+
+        return true;
+    }
+
+    return false;
 }

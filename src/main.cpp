@@ -19,16 +19,20 @@ int main(int argc, char* argv[]) {
 
 	SearchEngine engine;
 	engine.build(dir_path);
+	
 	while(true) {
 		std::string query;
 		std::cout << "Enter text to search: ";
 		std::getline(std::cin, query);
 		
 		if(query.empty()) continue;
-		if(query == ":q" || query == ":Q") break;
+		if(query == ":q" || query == ":Q") {
+			engine.save();
+			break;
+		}
 		if(query == ":help") {
 			std::cout << "\nCommands:\n";
-			std::cout << "  :q, :Q    - Quit\n";
+			std::cout << "  :q, :Q    - Quit (saves index)\n";
 			std::cout << "  :help     - Show this message\n";
 			std::cout << "  <query>   - Search for files\n\n";
 			continue;
