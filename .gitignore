@@ -22,4 +22,9 @@ Thumbs.db
 # VS Code
 .vscode/
 .vs
+
+# Index files
+.indexer_*
+
+# Project docs
 to-do.md
