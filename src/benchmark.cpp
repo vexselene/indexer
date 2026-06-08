@@ -68,6 +68,7 @@ int main(int argc, char* argv[]) {
     long total_us = 0;
 
     // --- Exact Filename Search (Hash Map) ---
+#ifdef USE_HASHMAP
     const auto& fx = engine.get_filename_index();
     out << "--- Exact Filename Search (Hash Map) ---\n";
     total_us = 0;
@@ -80,6 +81,7 @@ int main(int argc, char* argv[]) {
         out << "  \"" << q << "\": " << us << " µs, " << results.size() << " results\n";
     }
     out << "  Average: " << (total_us / exact_queries.size()) << " µs\n\n";
+#endif
 
     // --- Exact Filename Search (PrefixTree) ---
     const auto& pt = engine.get_prefix_tree();
