@@ -3,15 +3,30 @@
 #include "../include/file_name_index.h"
 #include "../include/inverted_index.h"
 #include "../include/tokenizer.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <algorithm>
-#include <fstream>
-#include <iostream>
 #include <filesystem>
+#include <unordered_set>
+#include <unordered_map>
+
+// helper to read section
+std::pair<std::string, std::string> read_section(std::ifstream& in) {
+    std::string tag(8, '\0');
+    in.read(tag.data(), 8);
+
+    int size;
+    in.read(reinterpret_cast<char*>(&size), sizeof(size));
+    
+    std::string data(size, '\0');
+    in.read(data.data(), size);
+
+    return {tag, data};
+}
 
 void SearchEngine::build(const std::string& dir_path) {
     // resolve dir_path -> absolute path
@@ -63,8 +78,9 @@ std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) 
     for(const auto& token : tokens) {
         #ifdef USE_HASHMAP
         std::unordered_set<int> f_name_ids = fx.search(token); 
-        #endif
+        #else
         std::unordered_set<int> f_name_ids = pt.search(token); //exact search
+        #endif
         std::unordered_set<int> pref_f_name_ids = pt.search_matching(token); // prefix search
         std::unordered_map<int, int> f_content_ids = IdX.search(token);
         
@@ -104,43 +120,85 @@ void SearchEngine::display(const std::vector<std::pair<int, int>>& results) cons
 }
 
 void SearchEngine::save() const {
-    fr.serialize(indexed_path + "/.indexer_registry");
-    pt.serialize(indexed_path + "/.indexer_prefix");
-    IdX.serialize(indexed_path + "/.indexer_inverted");
+    std::ofstream db(indexed_path + "/.indxr_db", std::ios::binary);
 
     // store the absolute path of the directory the index_.bin is for
-    std::ofstream meta(indexed_path + "/.indexer_meta");
-    int path_length = static_cast<int>(indexed_path.size());
-    meta.write(reinterpret_cast<const char*>(&path_length), sizeof(path_length));
-    meta.write(indexed_path.data(), path_length);
+    db.write("METADATA", 8);
+    int size = static_cast<int>(indexed_path.size());
+    db.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    db.write(indexed_path.data(), size);
+    
+    std::stringstream registry_buf;
+    std::stringstream prefix_buf;
+    std::stringstream inverted_buf;
+
+    fr.serialize(registry_buf);
+    pt.serialize(prefix_buf);
+    IdX.serialize(inverted_buf);
+
+    std::string r = registry_buf.str();
+    std::string p = prefix_buf.str();
+    std::string i = inverted_buf.str();
+
+    db.write("REGISTRY", 8);
+    size = static_cast<int>(r.size());
+    db.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    db.write(r.data(), size);
+    db.write("PREFIX__", 8);
+    
+    size = static_cast<int>(p.size());
+    db.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    db.write(p.data(), size);
+    
+    db.write("INVERTED", 8);
+    size = static_cast<int>(i.size());
+    db.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    db.write(i.data(), size);
 
     std::cout << "Index saved" << std::endl;
 }
 
 bool SearchEngine::load(const std::string& abs_path) {
     namespace fs = std::filesystem;
-    if(fs::exists(abs_path + "/.indexer_registry") && // deserialize only if these files exist
-       fs::exists(abs_path + "/.indexer_prefix") &&
-       fs::exists(abs_path + "/.indexer_inverted") &&
-       fs::exists(abs_path + "/.indexer_meta")) {
-        
-        std::ifstream meta(abs_path + "/.indexer_meta");
-        int path_length;
-        meta.read(reinterpret_cast<char*>(&path_length), sizeof(path_length));
-        std::string saved_path(path_length, '\0');
-        meta.read(saved_path.data(), path_length);
-
-        if (saved_path != abs_path) {
-            std::cout << "Index is for '" << saved_path << "', rebuilding for '" << abs_path << "'\n";
-            return false;
-        }
-
-        fr.deserialize(abs_path + "/.indexer_registry");
-        pt.deserialize(abs_path + "/.indexer_prefix");
-        IdX.deserialize(abs_path + "/.indexer_inverted");
-
-        return true;
+    if(!fs::exists(abs_path + "/.indxr_db")) return false;
+    
+    std::ifstream db(abs_path + "/.indxr_db", std::ios::binary); // open in binary mode
+    if(!db) throw std::runtime_error("Could not open .indxr_db");
+    
+    std::pair<std::string, std::string> section = read_section(db);
+    if(section.first != "METADATA") return false;
+    else if(section.second != abs_path) {
+        std::cout << "Indexed directory changed -- rebuilding Index\n";
+        return false;
     }
 
-    return false;
+    // registry section
+    section = read_section(db);
+    if(section.first != "REGISTRY") {
+        std::cout << ".indxr_db is corrupted ..... rebuilding Index\n";
+        return false;
+    }
+    std::stringstream registry_stream(section.second);
+    
+    // prefix section
+    section = read_section(db);
+    if(section.first != "PREFIX__") {
+        std::cout << ".indxr_db is corrupted ..... rebuilding Index\n";
+        return false;
+    }
+    std::stringstream prefix_stream(section.second);
+    
+    //inverted index section
+    section = read_section(db);
+    if(section.first != "INVERTED") {
+        std::cout << ".indxr_db is corrupted ..... rebuilding Index\n";
+        return false;
+    }
+    std::stringstream inverted_stream(section.second);
+
+    fr.deserialize(registry_stream);
+    pt.deserialize(prefix_stream);
+    IdX.deserialize(inverted_stream);
+
+    return true;
 }

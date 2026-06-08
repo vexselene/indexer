@@ -1,15 +1,12 @@
 #include "../include/tokenizer.h"
 #include "../include/prefix_tree.h"
 #include "../include/file_registery.h"
-#include <iostream>
+#include <iostream> // std::istream std::ostream
 #include <vector>
 #include <string>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
-
-#include <fstream>  // std::ifstream, std::ofstream
-
 /*
     Writes a trivially copyable value to a binary file.
 
@@ -20,7 +17,7 @@
     The bytes of x are copied directly into the file.
 */
 template<typename T>
-void write_binary(std::ofstream& file, const T& value) {
+void write_binary(std::ostream& file, const T& value) {
     file.write(
         reinterpret_cast<const char*>(&value),
         sizeof(T)
@@ -37,7 +34,7 @@ void write_binary(std::ofstream& file, const T& value) {
     Reads sizeof(T) bytes from the file and stores them in x.
 */
 template<typename T>
-void read_binary(std::ifstream& file, T& value)
+void read_binary(std::istream& file, T& value)
 {
     file.read(
         reinterpret_cast<char*>(&value),
@@ -146,14 +143,7 @@ void PrefixTree::list_all() const {
     }
 }
 
-void PrefixTree::serialize(const std::string& filename) const {
-    // Open file in binary mode.
-    // Without std::ios::binary some platforms may perform
-    // text conversions which we do not want.
-    std::ofstream file(filename, std::ios::binary);
-
-    if(!file) throw std::runtime_error("Could not open file");
-
+void PrefixTree::serialize(std::ostream& out) const {
     /*
         We cannot store raw pointers.
 
@@ -212,7 +202,7 @@ void PrefixTree::serialize(const std::string& filename) const {
     // Total number of nodes in the trie.
     int node_count = static_cast<int>(nodes.size());
 
-    write_binary(file, node_count);
+    write_binary(out, node_count);
 
     /*
         Serialize every node.
@@ -237,11 +227,11 @@ void PrefixTree::serialize(const std::string& filename) const {
             id
     */
     for(TrieNode* node : nodes) {
-        write_binary(file, node->is_terminal_flag);
+        write_binary(out, node->is_terminal_flag);
 
         int child_count = static_cast<int>(node->links.size());
 
-        write_binary(file, child_count);
+        write_binary(out, child_count);
 
         /*
             Store children as:
@@ -259,34 +249,29 @@ void PrefixTree::serialize(const std::string& filename) const {
                  7
         */
         for(const auto& [c, child] : node->links) {
-            write_binary(file, c);
+            write_binary(out, c);
 
             int child_index = node_to_index[child];
 
-            write_binary(file, child_index);
+            write_binary(out, child_index);
         }
 
         int id_count = static_cast<int>(node->file_ids.size());
 
-        write_binary(file, id_count);
+        write_binary(out, id_count);
 
         for(int id : node->file_ids) {
-            write_binary(file, id);
+            write_binary(out, id);
         }
     }
 }
 
-void PrefixTree::deserialize(const std::string& filename)
-{
-    std::ifstream file(filename, std::ios::binary);
-
-    if(!file) throw std::runtime_error("Could not open file");
-    
-    // Delete existing trie if one exists.
+void PrefixTree::deserialize(std::istream& in) {
+ // Delete existing trie if one exists.
     delete root;
 
     int node_count;
-    read_binary(file, node_count);
+    read_binary(in, node_count);
 
     /*
         Create all nodes first.
@@ -317,18 +302,18 @@ void PrefixTree::deserialize(const std::string& filename)
     {
         TrieNode* node = nodes[i]; // read from vector created above
 
-        read_binary(file, node->is_terminal_flag);
+        read_binary(in, node->is_terminal_flag);
 
         int child_count;
-        read_binary(file, child_count);
+        read_binary(in, child_count);
 
         for(int j = 0; j < child_count; j++)
         {
             char c;
             int child_index;
 
-            read_binary(file, c);
-            read_binary(file, child_index);
+            read_binary(in, c);
+            read_binary(in, child_index);
 
             /*
                 Convert index back into pointer.
@@ -345,12 +330,12 @@ void PrefixTree::deserialize(const std::string& filename)
         }
 
         int id_count;
-        read_binary(file, id_count);
+        read_binary(in, id_count);
 
         for(int j = 0; j < id_count; j++)
         {
             int id;
-            read_binary(file, id);
+            read_binary(in, id);
 
             node->file_ids.insert(id);
         }

@@ -21,6 +21,6 @@ public:
     void list_all() const;
     void index_directory(const std::string& path);
     std::vector<std::pair<int, std::string>> get_filenames() const;
-    void serialize(const std::string& filename) const;
-    void deserialize(const std::string& filename);
+    void serialize(std::ostream& out) const;
+    void deserialize(std::istream& in);
 };

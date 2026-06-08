@@ -7,14 +7,13 @@
 #include <unordered_map>
 #include <filesystem>
 
-#include <fstream> // std::ifstream std::ofstream
 template<typename T>
-void write_binary(std::ofstream& file, const T& value) {
+void write_binary(std::ostream& file, const T& value) {
     file.write(reinterpret_cast<const char*>(&value), sizeof(value));
 }
 
 template<typename T>
-void read_binary(std::ifstream& file, T& value) {
+void read_binary(std::istream& file, T& value) {
     file.read(reinterpret_cast<char*>(&value), sizeof(value));
 }
 
@@ -38,7 +37,7 @@ void FileRegistry::index_directory(const std::string& path) {
                       std::filesystem::directory_options::skip_permission_denied)) {
         // Each entry is of type fs::directory_entry. It knows the file's full path, whether it's a file or folder, its extension, etc.
         if(entry.is_regular_file()) {
-            if (entry.path().filename().string().starts_with(".indexer_")) continue; // skip files for serialization and deserialization
+            if (entry.path().filename().string().starts_with(".indxr_")) continue; // skip files for serialization and deserialization
             std::string ext = entry.path().extension().string();
             bool index_content = content_exts.count(ext) > 0;
             FileRegistry::register_file(entry.path().filename().string(), 
@@ -64,59 +63,51 @@ For each file:
     [path_bytes]
     [index_content]        ← 1 byte (bool)
 */
-void FileRegistry::serialize(const std::string& filename) const {
-    std::ofstream file(filename, std::ios::binary); // open in binary mode
-    if(!file) throw std::runtime_error("Could not open file.");
-
+void FileRegistry::serialize(std::ostream& out) const {
     int file_count = static_cast<int>(registry.size());
-    write_binary(file, file_count);
+    write_binary(out, file_count);
 
     for(const auto& [f_id, meta] : registry) {
-        write_binary(file, meta.id);
+        write_binary(out, meta.id);
 
         int name_length = static_cast<int>(meta.name.size());
-        write_binary(file, name_length);
-        file.write(meta.name.data(), name_length);
+        write_binary(out, name_length);
+        out.write(meta.name.data(), name_length);
         
         int path_length = static_cast<int>(meta.path.size());
-        write_binary(file, path_length);
-        file.write(meta.path.data(), path_length);
+        write_binary(out, path_length);
+        out.write(meta.path.data(), path_length);
 
         uint8_t ic = meta.index_content ? 1 : 0;  // write it as a fixed-size type for portability
-        write_binary(file, ic);
+        write_binary(out, ic);
 
     }
 }
 
-void FileRegistry::deserialize(const std::string& filename) {
-    std::ifstream file(filename, std::ios::binary);
-    if(!file) throw std::runtime_error("Could not open file.");
-
+void FileRegistry::deserialize(std::istream& in) {
     registry.clear();
 
-
     int file_count;
-    read_binary(file, file_count);
+    read_binary(in, file_count);
 
     for(int i = 0; i < file_count; i++) {
         int id;
-        read_binary(file, id);
+        read_binary(in, id);
         
         int name_length;
-        read_binary(file, name_length);
+        read_binary(in, name_length);
         std::string name(name_length, '\0');
-        file.read(name.data(), name_length);
+        in.read(name.data(), name_length);
         
         int path_length;
-        read_binary(file, path_length);
+        read_binary(in, path_length);
         std::string path(path_length, '\0');
-        file.read(path.data(), path_length);
+        in.read(path.data(), path_length);
 
         uint8_t ic;
-        read_binary(file, ic);
+        read_binary(in, ic);
 
         registry[id] = {id, name, path, ic != 0};
         if(id >= nextId) nextId = id + 1;
-
     }
 }

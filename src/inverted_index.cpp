@@ -5,15 +5,13 @@
 #include <unordered_map>
 #include <cerrno>
 
-#include <fstream> // std::ifstream std::ofstream
-
 template<typename T>
-void write_binary(std::ofstream& file, const T& value) {
+void write_binary(std::ostream& file, const T& value) {
     file.write(reinterpret_cast<const char*>(&value), sizeof(value)); // write(value, sizeof value type)
 }
 
 template<typename T>
-void read_binary(std::ifstream& file, T& value) {
+void read_binary(std::istream& file, T& value) {
     file.read(reinterpret_cast<char*>(&value), sizeof(value)); // read(value, sizeof type)
 }
 
@@ -76,49 +74,43 @@ void InvertedIndex::list_all() const {
         1
         5
 */
-void InvertedIndex::serialize(const std::string& filename) const {
-    std::ofstream file(filename, std::ios::binary); // open file in binary mode
-    if(!file) throw std::runtime_error("Could not open file.");
-
+void InvertedIndex::serialize(std::ostream& out) const {
     int token_count = static_cast<int>(index.size());
-    write_binary(file, token_count);
+    write_binary(out, token_count);
 
     for(const auto& [token, postings] : index) {
         int token_length = static_cast<int>(token.size());
-        write_binary(file, token_length);
-        file.write(token.data(), token_length);
+        write_binary(out, token_length);
+        out.write(token.data(), token_length);
 
-        write_binary(file, static_cast<int>(postings.size()));
+        write_binary(out, static_cast<int>(postings.size()));
         for(const auto& [f_id, freq] : postings) {
-            write_binary(file, f_id);
-            write_binary(file, freq);
+            write_binary(out, f_id);
+            write_binary(out, freq);
         }
     }
 }
 
-void InvertedIndex::deserialize(const std::string& filename) {
-    std::ifstream file(filename, std::ios::binary);
-    if(!file) throw std::runtime_error("Could not open file.");
-
+void InvertedIndex::deserialize(std::istream& in) {
     index.clear();
 
     int token_count;
-    read_binary(file, token_count);
+    read_binary(in, token_count);
 
     for(int i = 0; i < token_count; i++) {
         int token_length;
-        read_binary(file, token_length);
+        read_binary(in, token_length);
         std::string token(token_length, '\0'); // create token string of legth token_length
-        file.read(token.data(), token_length); // read data(token_length) into token.data()
+        in.read(token.data(), token_length); // read data(token_length) into token.data()
 
         int postings_count;
-        read_binary(file, postings_count);
+        read_binary(in, postings_count);
         for(int i = 0; i < postings_count; i++) {
             int file_id;
             int freq;
 
-            read_binary(file, file_id);
-            read_binary(file, freq);
+            read_binary(in, file_id);
+            read_binary(in, freq);
 
             index[token][file_id] = freq;
         }
