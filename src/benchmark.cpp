@@ -1,5 +1,4 @@
 #include "../include/search_engine.h"
-#include "../include/file_name_index.h"
 #include "../include/prefix_tree.h"
 #include "../include/inverted_index.h"
 #include <chrono>
@@ -66,23 +65,6 @@ int main(int argc, char* argv[]) {
     };
 
     long total_us = 0;
-
-    // --- Exact Filename Search (Hash Map) ---
-#ifdef USE_HASHMAP
-    const auto& fx = engine.get_filename_index();
-    out << "--- Exact Filename Search (Hash Map) ---\n";
-    total_us = 0;
-    for (const auto& q : exact_queries) {
-        start = std::chrono::high_resolution_clock::now();
-        auto results = fx.search(q);
-        end = std::chrono::high_resolution_clock::now();
-        auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        total_us += us;
-        out << "  \"" << q << "\": " << us << " µs, " << results.size() << " results\n";
-    }
-    out << "  Average: " << (total_us / exact_queries.size()) << " µs\n\n";
-#endif
-
     // --- Exact Filename Search (PrefixTree) ---
     const auto& pt = engine.get_prefix_tree();
     out << "--- Exact Filename Search (PrefixTree) ---\n";

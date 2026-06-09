@@ -12,7 +12,6 @@ struct FileMetaData {
     bool index_content;  // true for .txt, .md, .log, .csv
 
     uintmax_t file_size;
-    // std::filesystem::file_time_type last_modified;
     int64_t last_modified_ticks;
 };
 
