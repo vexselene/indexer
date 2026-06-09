@@ -35,6 +35,16 @@ void SearchEngine::build(const std::string& dir_path) {
     indexed_path = abs_path;
     if(load(abs_path)) {
         std::cout << "Loaded existing Index\n";
+        FileChanges changes = has_changed(abs_path);
+        for(const auto& path : changes.added) {
+            std::cout << "Added: " << path << std::endl;
+        }
+        for(const auto& path : changes.modified) {
+            std::cout << "Modified: " << path << std::endl;
+        }
+        for(const auto& path : changes.deleted) {
+            std::cout << "Deleted: " << path << std::endl;
+        }
         return;
     }
 
@@ -201,4 +211,41 @@ bool SearchEngine::load(const std::string& abs_path) {
     IdX.deserialize(inverted_stream);
 
     return true;
+}
+
+FileChanges SearchEngine::has_changed(const std::string& abs_path) const {
+    FileChanges changes;
+    std::unordered_set<std::string> seen_paths;
+    namespace fs = std::filesystem;
+    for(const auto& entry : fs::recursive_directory_iterator(abs_path)) {
+        if (!entry.is_regular_file()) continue;
+        if (entry.path().filename().string().starts_with(".indxr_")) continue;
+
+        std::string path = entry.path().string();
+        seen_paths.insert(path);
+
+        //new file
+        if(!fr.contains_path(path)) {
+            changes.added.push_back(path);
+            continue;
+        }
+
+        // existing files
+        int id = fr.get_id_from_path(path);
+
+        const FileMetaData& meta = fr.get_file(id);
+        uintmax_t current_file_size = fs::file_size(entry.path());
+        int64_t current_ticks = fs::last_write_time(entry.path()).time_since_epoch().count();
+        if(current_file_size != meta.file_size || current_ticks != meta.last_modified_ticks) {
+            changes.modified.push_back(path);
+        }
+
+    }
+    // deleted files
+    for(const auto& [id, meta] : fr.get_registry()) {
+        if(!seen_paths.contains(meta.path)) {
+            changes.deleted.push_back(meta.path);
+        }
+    }
+    return changes;
 }

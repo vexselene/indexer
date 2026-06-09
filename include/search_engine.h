@@ -13,6 +13,12 @@
 #include <unordered_set>
 #include <utility>
 
+struct FileChanges {
+    std::vector<std::string> added; // paths
+    std::vector<std::string> modified;
+    std::vector<std::string> deleted;
+};
+
 class SearchEngine {
 private:
     #ifdef USE_HASHMAP
@@ -37,4 +43,6 @@ public:
 
     void save() const;
     bool load(const std::string& abs_path); // returns true if loaded from disk
+    FileChanges has_changed(const std::string& abs_path) const;
+    void update_changes(const std::string& abs_path);
 };

@@ -17,8 +17,10 @@ void read_binary(std::istream& file, T& value) {
     file.read(reinterpret_cast<char*>(&value), sizeof(value));
 }
 
-void FileRegistry::register_file(const std::string&  name, const std::string& path, bool index_content) {
-    registry[nextId] = {nextId, name, path, index_content};
+void FileRegistry::register_file(const std::string&  name, const std::string& path, bool index_content,
+                                 uintmax_t file_size, int64_t last_modified_ticks) {
+    registry[nextId] = {nextId, name, path, index_content, file_size, last_modified_ticks};
+    path_to_id[path] = nextId;
     nextId++;
 }
 
@@ -40,8 +42,11 @@ void FileRegistry::index_directory(const std::string& path) {
             if (entry.path().filename().string().starts_with(".indxr_")) continue; // skip files for serialization and deserialization
             std::string ext = entry.path().extension().string();
             bool index_content = content_exts.count(ext) > 0;
-            FileRegistry::register_file(entry.path().filename().string(), 
-                                                entry.path().string(), index_content);
+            uintmax_t file_size = std::filesystem::file_size(entry.path());
+            auto last_modified = std::filesystem::last_write_time(entry.path());
+            int64_t last_modified_ticks = last_modified.time_since_epoch().count(); 
+            FileRegistry::register_file(entry.path().filename().string(), entry.path().string(), 
+                                                            index_content, file_size, last_modified_ticks);
         }
     }
 }
@@ -81,11 +86,14 @@ void FileRegistry::serialize(std::ostream& out) const {
         uint8_t ic = meta.index_content ? 1 : 0;  // write it as a fixed-size type for portability
         write_binary(out, ic);
 
+        write_binary(out, meta.file_size);        
+        write_binary(out, meta.last_modified_ticks);
     }
 }
 
 void FileRegistry::deserialize(std::istream& in) {
     registry.clear();
+    path_to_id.clear(); // clear previous data
 
     int file_count;
     read_binary(in, file_count);
@@ -106,8 +114,23 @@ void FileRegistry::deserialize(std::istream& in) {
 
         uint8_t ic;
         read_binary(in, ic);
-
-        registry[id] = {id, name, path, ic != 0};
+        
+        uintmax_t file_size;
+        read_binary(in, file_size);
+        
+        int64_t last_modified_ticks;
+        read_binary(in, last_modified_ticks);
+        
+        registry[id] = {id, name, path, ic != 0, file_size, last_modified_ticks};
+        path_to_id[path] = id;
         if(id >= nextId) nextId = id + 1;
     }
+}
+
+bool FileRegistry::contains_path(const std::string& path) const {
+    return path_to_id.find(path) != path_to_id.end();
+}
+
+int FileRegistry::get_id_from_path(const std::string& path) const {
+    return path_to_id.at(path);
 }
