@@ -45,6 +45,8 @@ void SearchEngine::build(const std::string& dir_path) {
         for(const auto& path : changes.deleted) {
             std::cout << "Deleted: " << path << std::endl;
         }
+
+        update_changes(changes);
         return;
     }
 
@@ -248,4 +250,73 @@ FileChanges SearchEngine::has_changed(const std::string& abs_path) const {
         }
     }
     return changes;
+}
+
+void SearchEngine::update_changes(const FileChanges& changes) {
+    if(changes.added.empty() && changes.modified.empty()
+                        && changes.deleted.empty()) return;
+    std::cout << "Updating Changes\n";
+
+    // handle deleted files
+    for(const auto& path : changes.deleted) {
+        int f_id = fr.get_id_from_path(path);
+        FileMetaData old_meta = fr.get_file(f_id);
+
+        auto name_tokens = tokenize(old_meta.name, false);
+        for(const auto& token : name_tokens) pt.remove_token(f_id, token);
+
+        IdX.remove_file_tokens(f_id);
+
+        fr.remove_file(f_id);
+    }
+    
+    // handle modified files
+    for(const auto& path : changes.modified) {
+        int f_id = fr.get_id_from_path(path);
+        IdX.remove_file_tokens(f_id);
+
+        // create inverted index for new file content
+        FileMetaData meta = fr.get_file(f_id);
+        if(!meta.index_content) continue; // skip file for inverted index if not a text file 
+        std::ifstream file(meta.path);
+        if(!file.is_open()) {
+            std::cerr << "Warning could not open file: " << meta.path << std::endl;
+            continue;
+        } 
+    
+        std::string line;
+        while(std::getline(file, line)) {
+            IdX.index_file_content(f_id, line);
+        }
+        // Update stored metadata so it won't re-trigger next time
+        namespace fs = std::filesystem;
+        fr.update_file_metadata(f_id, fs::file_size(path), 
+                                fs::last_write_time(path).time_since_epoch().count());
+    }
+
+    // handle added files
+    //index file names
+    for(const auto& path : changes.added) {
+        namespace fs = std::filesystem;
+        std::string name = fs::path(path).filename().string();
+        std::string ext = fs::path(path).extension().string();
+        std::unordered_set<std::string> content_ext = {".txt", ".csv", ".md", ".log"};
+        bool index_content = content_ext.count(ext) > 0;
+        uintmax_t file_size = fs::file_size(path);
+        int64_t last_modified_ticks = fs::last_write_time(path).time_since_epoch().count();
+
+        fr.register_file(name, path, index_content, file_size, last_modified_ticks);
+        int f_id = fr.get_id_from_path(path);
+
+        pt.index_file_name(f_id, name);
+        if(index_content) {
+            std::ifstream file(path);
+            std::string line, content;
+            while(std::getline(file, line)) content += line;
+            IdX.index_file_content(f_id, content);
+        }
+    }
+
+    save();
+    std::cout << "Changes Updated!\n";
 }

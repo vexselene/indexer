@@ -44,5 +44,5 @@ public:
     void save() const;
     bool load(const std::string& abs_path); // returns true if loaded from disk
     FileChanges has_changed(const std::string& abs_path) const;
-    void update_changes(const std::string& abs_path);
+    void update_changes(const FileChanges& changes);
 };

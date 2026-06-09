@@ -134,3 +134,19 @@ bool FileRegistry::contains_path(const std::string& path) const {
 int FileRegistry::get_id_from_path(const std::string& path) const {
     return path_to_id.at(path);
 }
+
+void FileRegistry::remove_file(int f_id) {
+    auto it = registry.find(f_id);
+    if (it != registry.end()) {
+        path_to_id.erase(it->second.path);
+        registry.erase(it);
+    }
+}
+
+void FileRegistry::update_file_metadata(int id, uintmax_t size, int64_t ticks) {
+    auto it = registry.find(id);
+    if (it != registry.end()) {
+        it->second.file_size = size;
+        it->second.last_modified_ticks = ticks;
+    }
+}

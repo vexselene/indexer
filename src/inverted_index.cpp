@@ -116,3 +116,13 @@ void InvertedIndex::deserialize(std::istream& in) {
         }
     }
 }
+
+void InvertedIndex::remove_file_tokens(int f_id) { 
+    for(auto it = index.begin(); it != index.end(); ) {
+        it->second.erase(f_id); // (map.erase(key)) | index = <token, <f_id, freq> 
+        if(it->second.empty()) 
+            it = index.erase(it); // erase returns the NEXT valid iterator
+        else 
+            ++it; // advance normally
+    }
+}

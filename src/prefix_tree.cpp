@@ -347,3 +347,12 @@ void PrefixTree::deserialize(std::istream& in) {
     */
     root = nodes[0];
 }
+
+void PrefixTree::remove_token(int f_id, const std::string& token) {
+    TrieNode* node = root;
+    for(char c : token) {
+        if(!node->contains_key(c)) return;
+        node = node->get_key(c);
+    }
+    node->file_ids.erase(f_id);
+}

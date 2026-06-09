@@ -30,6 +30,7 @@ public:
     void get_file_ids(TrieNode* node, std::unordered_set<int>& f_ids) const;
     void get_words(TrieNode* node, std::vector<std::string>& words, std::string word) const;
     void list_all() const;
+    void remove_token(int f_id, const std::string& token);
     void serialize(std::ostream& out) const; // const because it should not modify index
     void deserialize(std::istream& in);
 };
