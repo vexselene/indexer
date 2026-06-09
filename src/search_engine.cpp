@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cmath>  // std::log
 #include <utility>
 #include <algorithm>
 #include <filesystem>
@@ -82,18 +83,30 @@ std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) 
 
     // build score map (O(1) lookup)
     std::unordered_map<int, int> score_map;
-    
+    int total_files = fr.get_registry().size(); // for TF-IDF
     for(const auto& token : tokens) {
         std::unordered_set<int> f_name_ids = pt.search(token); //exact search
         std::unordered_set<int> pref_f_name_ids = pt.search_matching(token); // prefix search
         std::unordered_map<int, int> f_content_ids = IdX.search(token);
-        
+        int df = IdX.document_frequency(token);
+        double idf = (df > 0) ? std::log(static_cast<double>(total_files) / df) : 0.0;
         for(int f_id : f_name_ids) {
             score_map[f_id] += 10;
-            pref_f_name_ids.erase(f_id);
+            pref_f_name_ids.erase(f_id); // avoid double count
         }
         for(int f_id : pref_f_name_ids) score_map[f_id] += 5;
-        for(const auto& [f_id, freq] : f_content_ids) score_map[f_id] += 3*freq;
+        // Content match: TF-IDF weighted (scaled ×10 to match filename scores)
+        /*
+            TF-IDF = TF × IDF
+
+            TF  (Term Frequency)     = how often word appears in THIS file
+            IDF (Inverse Document Frequency) = how RARE the word is across ALL files
+
+            IDF = log(total_files / files_containing_word)
+        */
+        for(const auto& [f_id, freq] : f_content_ids) {
+            score_map[f_id] += static_cast<int>(freq * idf * 10);
+        }
     }
     std::vector<std::pair<int, int>> results;
     for(const auto& [f_id, score] : score_map) results.emplace_back(f_id, score); 

@@ -126,3 +126,10 @@ void InvertedIndex::remove_file_tokens(int f_id) {
             ++it; // advance normally
     }
 }
+
+// how many files contain this token
+int InvertedIndex::document_frequency(const std::string& token) const {
+    auto it = index.find(token);
+    if (it != index.end()) return it->second.size();
+    return 0;
+}
