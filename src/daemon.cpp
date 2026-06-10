@@ -1,10 +1,12 @@
 #include "../include/search_engine.h"
+#include "fs_hook.h"
 #include <iostream>
 #include <string>
 #include <vector>
 #include <sys/socket.h>   // provides socket(), bind(), listen(), accept(), send(), recv()
 #include <sys/un.h>       // struct sockaddr_un (Unix domain socket addresses)
 #include <unistd.h>       // close(), unlink()
+#include <poll.h>         // poll() for multiplexing socket + filesystem events
 
 #define SOCKET_PATH "/tmp/indexer.sock"
 
@@ -32,6 +34,16 @@ int main(int argc, char* argv[]) {
 
     SearchEngine engine;
     engine.build(dir_path);
+
+    // Hook into filesystem events for live index updates
+    FsHook hook(dir_path, [&](const std::string& name, int ev) {
+        std::string full_path = dir_path + "/" + name;
+        if (ev == 1)      std::cout << "Added: " << full_path << "\n";
+        else if (ev == 2) std::cout << "Modified: " << full_path << "\n";
+        else if (ev == 3) std::cout << "Deleted: " << full_path << "\n";
+        
+        engine.update_changes(engine.has_changed(dir_path));
+    });
 
     // remove stale socket file from previous run (if it exists)
     unlink(SOCKET_PATH);
@@ -61,29 +73,46 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Indexer daemon listening on " << SOCKET_PATH << "\n";
 
-    // Event loop: accept a client, handle the request, close, repeat
-    while (true) {
-        // Block until a client connects
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd < 0) continue;
+    // watch both socket and filesystem events with poll()
+    struct pollfd fds[2];
+    fds[0].fd = server_fd;
+    fds[0].events = POLLIN;
+    fds[1].fd = hook.get_fd();
+    fds[1].events = POLLIN;
 
-        // Read the query from the client
-        char buffer[4096] = {0};
-        int bytes = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes <= 0) {
+    // Event loop: handle client requests and filesystem changes
+    while (true) {
+        int ret = poll(fds, 2, -1);
+        if (ret < 0) break;
+
+        //new client connection
+        if (fds[0].revents & POLLIN) {
+            int client_fd = accept(server_fd, nullptr, nullptr);
+            if (client_fd < 0) continue;
+
+            // Read the query from the client
+            char buffer[4096] = {0};
+            int bytes = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+            if (bytes <= 0) {
+                close(client_fd);
+                continue;
+            }
+
+            std::string query(buffer);
+
+            auto results = engine.search_query(query);
+            std::string json = to_json(results);
+
+            // Send JSON response back to client
+            send(client_fd, json.c_str(), json.size(), 0);
+
             close(client_fd);
-            continue;
         }
 
-        std::string query(buffer);
-
-        auto results = engine.search_query(query);
-        std::string json = to_json(results);
-
-        // Send JSON response back to client
-        send(client_fd, json.c_str(), json.size(), 0);
-
-        close(client_fd);
+        // Filesystem event
+        if (fds[1].revents & POLLIN) {
+            hook.process_events();
+        }
     }
 
     // Cleanup (unreachable in current loop, but good practice)
