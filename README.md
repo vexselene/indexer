@@ -1,108 +1,244 @@
-# Indexer — Local File Search Engine
+# Indexer — Local File Indexing and Search Service
 
-A from-scratch local file search engine written in C++ with no external search libraries.
-Indexes filenames and file contents, ranks results using TF-IDF scoring, and persists
-the index to disk across sessions.
+A local file indexing and search service written in modern C++.
+
+Indexer recursively scans directories, builds searchable indexes for filenames and file contents, persists them to disk, and serves search requests through a daemon process.
+
+---
 
 ## Features
 
-- Walks a directory recursively and indexes all files
-- Filename search via a **Trie** (exact + prefix matching)
-- Full-text content search via an **Inverted Index**
-- Ranked results using **TF-IDF** weighted scoring
-- **Incremental updates** — detects added, modified, and deleted files on restart
-- **Binary serialization** — index persists to `.indxr_db`, no full rebuild needed
-- **Daemon mode** — runs as a background process, exposes search over a Unix domain socket
-- Thread-safe reads via `std::shared_mutex`
-- Interactive CLI with `:q` to save and quit
+- Recursive directory indexing
+- Trie-based filename search — exact and prefix matching
+- Full-text content search via an Inverted Index
+- TF-IDF based ranking
+- Binary persistence using a single `.indxr_db` file
+- Incremental indexing on startup — detects added, modified, and deleted files
+- Real-time filesystem monitoring via `inotify`
+- Automatic index updates while the daemon is running
+- Unix domain socket daemon
+- HTTP API integration
+- Thread-safe access using `std::shared_mutex`
+- Interactive CLI
+- Benchmark suite
 
-## Build & Run
+---
+
+## Architecture
+
+```
+                HTTP Client
+                     |
+                     v
+              HTTP Server
+                     |
+                     v
+             Unix Domain Socket
+                     |
+                     v
+              Indexer Daemon
+                     |
+      +--------------+--------------+
+      |                             |
+      v                             v
+   FsHook                      Search Engine
+ (inotify)                           |
+                                    / \
+                                   /   \
+                                  v     v
+                          Prefix Tree  Inverted Index
+```
+
+The search engine is transport-independent. Queries can come from the CLI, Unix socket clients, or the HTTP API without modifying the indexing logic.
+
+---
+
+## How It Works
+
+### File Registration
+
+Each file is registered with metadata:
+
+```cpp
+struct FileMetaData {
+    int id;
+    std::string name;
+    std::string path;
+    uintmax_t file_size;
+    int64_t last_modified_ticks;
+    bool index_content;
+};
+```
+
+### Filename Index
+
+Filenames are tokenized and inserted into a Trie. For example, `math_notes.txt` becomes the tokens `math`, `notes`, and `txt`, allowing both exact and prefix searches.
+
+### Content Index
+
+Files with the following extensions are tokenized and stored in an inverted index:
+
+```
+.txt  .md  .csv  .log
+```
+
+The index maps each token to the files containing it and their frequency:
+
+```
+matrix
+ ├── file 3 -> 5
+ └── file 8 -> 2
+```
+
+### Search Ranking
+
+Scores are accumulated per file across all index sources:
+
+| Match Type | Score |
+|---|---|
+| Exact filename token | +10 |
+| Prefix filename token | +5 |
+| Content match | TF-IDF weighted |
+
+Results are sorted by descending score.
+
+### Persistence
+
+All data is written to `.indxr_db` using a custom binary format with tagged sections:
+
+```
+[METADATA] [REGISTRY] [PREFIX__] [INVERTED]
+```
+
+On startup the database is loaded, the filesystem is scanned, and only changed files are re-indexed.
+
+### Live Updates
+
+The daemon watches the indexed directory via Linux `inotify` through `FsHook`. New, modified, and deleted files are handled automatically while the daemon is running. Hidden files are ignored to prevent indexing internal database files.
+
+---
+
+## Build
 
 ```bash
-make
-
-./bin/indxr                  # indexes ./data by default
-./bin/indxr /path/to/dir     # custom directory
-
-./bin/indxrd /path/to/dir    # run as daemon (Unix socket at /tmp/indexer.sock)
-./bin/benchmark /path/to/dir # run benchmarks
+make            # CLI  →  bin/indxr
+make daemon     # Daemon  →  bin/indxrd
+make benchmark  # Benchmark  →  bin/benchmark
 ```
 
-## CLI Commands
+---
 
+## Usage
+
+### CLI
+
+```bash
+make run
+make run ARGS="/path/to/dir"
 ```
-<query>     search for files
-:q / :Q     quit and save index
-:help       show help
+
+| Command | Description |
+|---|---|
+| `<query>` | Search files |
+| `:q` | Save and quit |
+| `:help` | Show help |
+
+### Daemon
+
+```bash
+make run-daemon
+make run-daemon ARGS="/path/to/dir"
 ```
+
+The daemon listens on `/tmp/indexer.sock`.
+
+### Querying the Daemon
+
+```bash
+./bin/indxrd &
+echo "math" | nc -U /tmp/indexer.sock
+```
+
+Response:
+
+```json
+{
+  "results": [
+    {
+      "id": 0,
+      "name": "math_notes.txt",
+      "path": "/home/user/docs/math_notes.txt",
+      "score": 15
+    }
+  ]
+}
+```
+
+### Benchmarks
+
+```bash
+make run-bench ARGS="./benchmark_data"
+```
+
+---
 
 ## Project Structure
 
 ```
 include/
-├── file_registery.h      # File registry + metadata
-├── prefix_tree.h         # Trie for filename indexing
-├── inverted_index.h      # Inverted index for content search
-├── search_engine.h       # Unified search, scoring, persistence
-└── tokenizer.h           # Tokenizer
+├── file_registery.h
+├── prefix_tree.h
+├── inverted_index.h
+├── search_engine.h
+├── fs_hook.h
+└── tokenizer.h
 src/
+├── main.cpp
+├── daemon.cpp
+├── benchmark.cpp
 ├── file_registery.cpp
 ├── prefix_tree.cpp
 ├── inverted_index.cpp
 ├── search_engine.cpp
-├── tokenizer.cpp
-├── main.cpp              # Interactive CLI
-├── daemon.cpp            # Unix socket daemon
-└── benchmark.cpp         # Benchmark harness
-data/                     # Sample files for testing
+├── fs_hook.cpp
+└── tokenizer.cpp
 Makefile
 ```
 
-## How It Works
-
-**Indexing**
-
-Files are registered with metadata (size, last modified). Filenames are tokenized
-and inserted into a Trie. File contents (`.txt`, `.md`, `.csv`, `.log`) are tokenized
-and inserted into an inverted index mapping each token to the files that contain it
-and its frequency.
-
-**Searching**
-
-A query is tokenized and searched across both indexes. Scores are accumulated per file:
-
-| Match type | Score |
-|---|---|
-| Exact filename token match | +10 |
-| Prefix filename match | +5 |
-| Content match | `freq × IDF × 10` |
-
-Results are sorted by score descending.
-
-**Persistence**
-
-On quit, the index is serialized to `.indxr_db` in the indexed directory using a
-custom binary format with tagged sections (`METADATA`, `REGISTRY`, `PREFIX__`, `INVERTED`).
-On next run, the index is loaded and only changed files are re-indexed.
-
-**Daemon mode**
-
-`indxrd` builds the index then listens on `/tmp/indexer.sock` (Unix domain socket).
-Clients send a query string and receive a JSON response. The companion HTTP server
-connects to this socket and exposes search via a `/search` route.
+---
 
 ## Design Decisions
 
-| Decision | Why |
+| Decision | Reason |
 |---|---|
-| Trie for filename index | O(m) lookup and natural prefix search |
-| `unordered_map` for inverted index | O(1) token lookup |
-| TF-IDF for content scoring | Penalizes common words, rewards rare matches |
-| BFS order for Trie serialization | Root is always index 0, clean pointer reconstruction on load |
-| Unix domain socket for daemon | Local IPC — faster than TCP, no port needed |
-| `shared_mutex` | Multiple concurrent readers, exclusive writer |
-| Single `tokenize()` with boolean flag | Reused for filenames (alpha only) and content (alphanumeric) |
+| Trie for filename indexing | Efficient exact and prefix search |
+| Inverted index for content search | O(1) token lookup |
+| TF-IDF scoring | Penalizes common words, rewards rare matches |
+| Single binary database | Faster startup and simpler persistence |
+| Incremental indexing | Avoids full rebuilds |
+| `inotify`-based file watching | Real-time updates without polling |
+| Unix domain sockets | Efficient local IPC, no port needed |
+| Separate daemon process | Decouples indexing from clients |
+| `shared_mutex` | Concurrent readers with exclusive writer |
+
+---
+
+## Requirements
+
+- C++20
+- Linux
+- make
+
+Linux-specific: `inotify`, Unix domain sockets.
+
+---
 
 ## Future Work
 
-Fuzzy search (edit distance / dynamic programming).
+Fuzzy search (Levenshtein distance / BK-tree).
+
+---
+
+## License
+
+MIT
