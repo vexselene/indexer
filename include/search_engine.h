@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <shared_mutex>
 
 struct FileChanges {
     std::vector<std::string> added; // paths
@@ -22,6 +23,8 @@ private:
     PrefixTree pt;
 
     std::string indexed_path;
+
+    mutable std::shared_mutex mtx; // mutable means it can be locked even in const methods
 public:
     void build(const std::string& dir_path);
     std::vector<std::pair<int, int>> search(const std::string& query) const;

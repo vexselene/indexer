@@ -14,6 +14,9 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include <mutex>
+#include <shared_mutex>
+
 // helper to read section
 std::pair<std::string, std::string> read_section(std::ifstream& in) {
     std::string tag(8, '\0');
@@ -29,6 +32,7 @@ std::pair<std::string, std::string> read_section(std::ifstream& in) {
 }
 
 void SearchEngine::build(const std::string& dir_path) {
+    std::unique_lock lock(mtx);
     // resolve dir_path -> absolute path
     namespace fs =  std::filesystem;
     std::string abs_path = fs::absolute(dir_path).string();
@@ -79,6 +83,7 @@ void SearchEngine::build(const std::string& dir_path) {
 }
 
 std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) const {
+    std::shared_lock lock(mtx);
     std::vector<std::string> tokens = tokenize(query, false);
 
     // build score map (O(1) lookup)
@@ -120,6 +125,7 @@ std::vector<std::pair<int, int>> SearchEngine::search(const std::string& query) 
 }
 
 void SearchEngine::display(const std::vector<std::pair<int, int>>& results) const {
+    std::shared_lock lock(mtx);
     std::cout << "--------Query results--------\n";
     if(results.empty()) {
         std::cout << "Nothing found!\n";
