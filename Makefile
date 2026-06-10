@@ -2,23 +2,42 @@ CXX = g++
 CXXFLAGS = -std=c++20 -Wall -Wextra -g -pthread -MMD -MP
 INC = -I include
 
-SRC = $(filter-out src/benchmark.cpp, $(wildcard src/*.cpp))
-OBJ = $(patsubst src/%.cpp, build/%.o, $(SRC))
-DEP = $(OBJ:.o=.d)
+# CLI: all .cpp files except daemon.cpp and benchmark.cpp
+CLI_SRC = $(filter-out src/daemon.cpp src/benchmark.cpp, $(wildcard src/*.cpp))
+CLI_OBJ = $(patsubst src/%.cpp, build/cli_%.o, $(CLI_SRC))
+CLI_DEP = $(CLI_OBJ:.o=.d)
 
-OUT = bin/indxr
+# Daemon: all .cpp files except main.cpp and benchmark.cpp
+DAEMON_SRC = $(filter-out src/main.cpp src/benchmark.cpp, $(wildcard src/*.cpp))
+DAEMON_OBJ = $(patsubst src/%.cpp, build/daemon_%.o, $(DAEMON_SRC))
+DAEMON_DEP = $(DAEMON_OBJ:.o=.d)
 
-all: $(OUT)
+CLI_OUT = bin/indxr
+DAEMON_OUT = bin/indxr-daemon
 
-$(OUT): $(OBJ)
+all: $(CLI_OUT)
+
+daemon: $(DAEMON_OUT)
+
+$(CLI_OUT): $(CLI_OBJ)
 	mkdir -p bin
-	$(CXX) $(CXXFLAGS) $(OBJ) -o $(OUT)
+	$(CXX) $(CXXFLAGS) $(CLI_OBJ) -o $(CLI_OUT)
 
-build/%.o: src/%.cpp
+$(DAEMON_OUT): $(DAEMON_OBJ)
+	mkdir -p bin
+	$(CXX) $(CXXFLAGS) $(DAEMON_OBJ) -o $(DAEMON_OUT)
+
+# CLI objects
+build/cli_%.o: src/%.cpp
 	mkdir -p build
 	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
-BENCH_SRC = src/benchmark.cpp $(filter-out src/main.cpp src/benchmark.cpp, $(wildcard src/*.cpp))
+# Daemon objects
+build/daemon_%.o: src/%.cpp
+	mkdir -p build
+	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
+
+BENCH_SRC = src/benchmark.cpp $(filter-out src/main.cpp src/benchmark.cpp src/daemon.cpp, $(wildcard src/*.cpp))
 benchmark:
 	mkdir -p bin
 	$(CXX) $(CXXFLAGS) -O2 $(INC) $(BENCH_SRC) -o bin/benchmark
@@ -27,9 +46,12 @@ run-bench: benchmark
 	./bin/benchmark $(ARGS)
 
 run: all
-	./$(OUT) $(ARGS)
+	./$(CLI_OUT) $(ARGS)
+
+run-daemon: daemon
+	./$(DAEMON_OUT) $(ARGS)
 
 clean:
 	rm -rf build bin
 
--include $(DEP)
+-include $(CLI_DEP) $(DAEMON_DEP)
