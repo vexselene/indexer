@@ -331,3 +331,13 @@ void SearchEngine::update_changes(const FileChanges& changes) {
     save();
     std::cout << "Changes Updated!\n";
 }
+
+std::vector<SearchResult> SearchEngine::search_query(const std::string& query) const {
+    auto scored = search(query);
+    std::vector<SearchResult> results;
+    for (const auto& [f_id, score] : scored) {
+        FileMetaData meta = fr.get_file(f_id);
+        results.push_back({f_id, meta.name, meta.path, score});
+    }
+    return results;
+}

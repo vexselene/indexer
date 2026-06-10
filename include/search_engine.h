@@ -16,6 +16,13 @@ struct FileChanges {
     std::vector<std::string> deleted;
 };
 
+struct SearchResult {
+    int f_id;
+    std::string name;
+    std::string path;
+    int score;
+};
+
 class SearchEngine {
 private:
     FileRegistry fr;
@@ -37,4 +44,5 @@ public:
     bool load(const std::string& abs_path); // returns true if loaded from disk
     FileChanges has_changed(const std::string& abs_path) const;
     void update_changes(const FileChanges& changes);
+    std::vector<SearchResult> search_query(const std::string& query) const;
 };
