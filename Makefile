@@ -7,13 +7,13 @@ CLI_SRC = $(filter-out src/daemon.cpp src/benchmark.cpp, $(wildcard src/*.cpp))
 CLI_OBJ = $(patsubst src/%.cpp, build/cli_%.o, $(CLI_SRC))
 CLI_DEP = $(CLI_OBJ:.o=.d)
 
-# Daemon: all .cpp files except main.cpp and benchmark.cpp
+# Daemon: all .cpp files except main.cpp and benchmark.cpp (includes fs_hook.cpp)
 DAEMON_SRC = $(filter-out src/main.cpp src/benchmark.cpp, $(wildcard src/*.cpp))
 DAEMON_OBJ = $(patsubst src/%.cpp, build/daemon_%.o, $(DAEMON_SRC))
 DAEMON_DEP = $(DAEMON_OBJ:.o=.d)
 
 CLI_OUT = bin/indxr
-DAEMON_OUT = bin/indxr-daemon
+DAEMON_OUT = bin/indxrd
 
 all: $(CLI_OUT)
 
