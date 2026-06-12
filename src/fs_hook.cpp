@@ -1,4 +1,4 @@
-#include "./include/fs_hook.h"
+#include "../include/fs_hook.h"
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <iostream>
