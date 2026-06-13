@@ -307,11 +307,11 @@ void SearchEngine::update_changes(const FileChanges& changes) {
 
     // handle added files
     //index file names
+    std::unordered_set<std::string> content_ext = {".txt", ".csv", ".md", ".log"};
     for(const auto& path : changes.added) {
         namespace fs = std::filesystem;
         std::string name = fs::path(path).filename().string();
         std::string ext = fs::path(path).extension().string();
-        std::unordered_set<std::string> content_ext = {".txt", ".csv", ".md", ".log"};
         bool index_content = content_ext.count(ext) > 0;
         uintmax_t file_size = fs::file_size(path);
         int64_t last_modified_ticks = fs::last_write_time(path).time_since_epoch().count();
@@ -323,7 +323,7 @@ void SearchEngine::update_changes(const FileChanges& changes) {
         if(index_content) {
             std::ifstream file(path);
             std::string line, content;
-            while(std::getline(file, line)) content += line;
+            while(std::getline(file, line)) content += line + " ";
             IdX.index_file_content(f_id, content);
         }
     }
