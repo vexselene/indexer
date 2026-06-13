@@ -35,7 +35,7 @@ void SearchEngine::build(const std::string& dir_path) {
     std::unique_lock lock(mtx);
     // resolve dir_path -> absolute path
     namespace fs =  std::filesystem;
-    std::string abs_path = fs::absolute(dir_path).string();
+    std::string abs_path = fs::weakly_canonical(dir_path).string();
     indexed_path = abs_path;
     if(load(abs_path)) {
         std::cout << "Loaded existing Index\n";

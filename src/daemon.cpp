@@ -30,7 +30,7 @@ std::string to_json(const std::vector<SearchResult>& results) {
 }
 
 int main(int argc, char* argv[]) {
-    std::string dir_path = (argc >= 2) ? argv[1] : "data";
+    std::string dir_path = std::filesystem::weakly_canonical((argc >= 2) ? argv[1] : "data").string();
 
     SearchEngine engine;
     engine.build(dir_path);
